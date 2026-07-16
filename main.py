@@ -1,4 +1,5 @@
 import os
+import asyncio
 import threading
 from flask import Flask
 from pymongo import MongoClient
@@ -28,6 +29,7 @@ try:
     print("✨ MongoDB connected successfully!")
 except Exception as e:
     print(f"⚠️ MongoDB Connection Error: {e}")
+    users_col = None
 
 # --- PYROGRAM TELEGRAM BOT CONFIGURATION ---
 API_ID = 38138069
@@ -102,14 +104,14 @@ BACK_TO_START_KEYBOARD = InlineKeyboardMarkup([
     [InlineKeyboardButton("🔙 ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ", callback_data="back_to_start")]
 ])
 
-# --- COMMAND HANDLERS (WORKS IN PUBLIC & PRIVATE) ---
+# --- COMMAND HANDLERS ---
 @bot.on_message(filters.command("start"))
 async def start_command(client, message):
     try:
-        # Save user to MongoDB on start
-        user_id = message.from_user.id
-        if users_col and not users_col.find_one({"user_id": user_id}):
-            users_col.insert_one({"user_id": user_id, "username": message.from_user.username})
+        if users_col:
+            user_id = message.from_user.id
+            if not users_col.find_one({"user_id": user_id}):
+                users_col.insert_one({"user_id": user_id, "username": message.from_user.username})
             
         await message.reply_photo(
             photo=DEFAULT_IMAGE,
@@ -193,7 +195,13 @@ async def handle_callbacks(client, callback_query: CallbackQuery):
     elif data == "action_next_page":
         await callback_query.answer("ᴘᴀɢᴇ 2 ғᴇᴀᴛᴜʀᴇs ᴀʀᴇ ᴄᴜʀʀᴇɴᴛʟʏ ᴜɴᴅᴇʀ ᴅᴇᴠᴇʟᴏᴘᴍᴇɴᴛ!", show_alert=True)
 
-# --- BOT CORNERSTONE START ---
-if __name__ == "__main__":
+# --- ASYNC BOT LAUNCHER TO FIX RUNTIME LOOPS ---
+async def main():
     print("🚀 GcGuardianXbot is firing up...")
-    bot.run()
+    await bot.start()
+    print("✨ Bot is fully online and monitoring!")
+    # Keeps loop active until stop event
+    await asyncio.Event().wait()
+
+if __name__ == "__main__":
+    asyncio.run(main())
